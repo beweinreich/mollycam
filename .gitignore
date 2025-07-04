@@ -10,6 +10,16 @@
 
 # production
 /build
+# Allow build files in root for GitHub Pages deployment
+!/index.html
+!/static/
+!/asset-manifest.json
+!/favicon.ico
+!/logo*.png
+!/manifest.json
+!/robots.txt
+!/service-worker.js
+!/service-worker.js.map
 
 # misc
 .DS_Store
