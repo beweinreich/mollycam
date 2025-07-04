@@ -20,7 +20,11 @@ function App() {
         navigator.mediaDevices.getUserMedia
       ) {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode },
+          video: {
+            facingMode,
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
         });
         videoRef.current.srcObject = stream;
         setStreaming(true);
@@ -38,12 +42,19 @@ function App() {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (video && canvas) {
+      // Set canvas size to match video size
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      canvas.getContext("2d").drawImage(video, 0, 0);
-      canvas.toBlob((blob) => {
-        setPhoto(blob);
-      }, "image/jpeg");
+      canvas
+        .getContext("2d")
+        .drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+      canvas.toBlob(
+        (blob) => {
+          setPhoto(blob);
+        },
+        "image/jpeg",
+        0.95
+      );
     }
   };
 

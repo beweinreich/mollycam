@@ -1,20 +1,20 @@
 {
   "files": {
     "main.css": "/mollycam/static/css/main.e6c13ad2.css",
-    "main.js": "/mollycam/static/js/main.60e1b48c.js",
+    "main.js": "/mollycam/static/js/main.3505b22b.js",
     "static/js/977.8c34679f.chunk.js": "/mollycam/static/js/977.8c34679f.chunk.js",
     "static/js/455.8aff336f.chunk.js": "/mollycam/static/js/455.8aff336f.chunk.js",
     "static/js/533.e569d146.chunk.js": "/mollycam/static/js/533.e569d146.chunk.js",
     "service-worker.js": "/mollycam/service-worker.js",
     "index.html": "/mollycam/index.html",
     "main.e6c13ad2.css.map": "/mollycam/static/css/main.e6c13ad2.css.map",
-    "main.60e1b48c.js.map": "/mollycam/static/js/main.60e1b48c.js.map",
+    "main.3505b22b.js.map": "/mollycam/static/js/main.3505b22b.js.map",
     "977.8c34679f.chunk.js.map": "/mollycam/static/js/977.8c34679f.chunk.js.map",
     "455.8aff336f.chunk.js.map": "/mollycam/static/js/455.8aff336f.chunk.js.map",
     "533.e569d146.chunk.js.map": "/mollycam/static/js/533.e569d146.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.e6c13ad2.css",
-    "static/js/main.60e1b48c.js"
+    "static/js/main.3505b22b.js"
   ]
 }
