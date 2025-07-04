@@ -8,8 +8,6 @@
 # testing
 /coverage
 
-# production
-/build
 # Allow build files in root for GitHub Pages deployment
 !/index.html
 !/static/
