@@ -8,9 +8,9 @@ function App() {
   const photoContainerRef = useRef(null);
   const [photo, setPhoto] = useState(null);
   const [streaming, setStreaming] = useState(false);
-  const [showShareOptions, setShowShareOptions] = useState(false);
+  const [facingMode, setFacingMode] = useState("front"); // 'user' for front, 'environment' for rear
 
-  // Start camera on mount
+  // Start camera on mount or when facingMode changes
   useEffect(() => {
     let stream;
     (async () => {
@@ -19,7 +19,9 @@ function App() {
         navigator.mediaDevices &&
         navigator.mediaDevices.getUserMedia
       ) {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode },
+        });
         videoRef.current.srcObject = stream;
         setStreaming(true);
       }
@@ -29,7 +31,7 @@ function App() {
         stream.getTracks().forEach((track) => track.stop());
       }
     };
-  }, []);
+  }, [facingMode]);
 
   // Take photo
   const takePhoto = () => {
@@ -86,70 +88,44 @@ function App() {
 
   // Export as PDF
   const exportAsPDF = async () => {
-    if (!photoContainerRef.current) return;
-
+    if (!photo) return;
     try {
-      // Create a temporary container for the PDF
-      const tempContainer = document.createElement("div");
-      tempContainer.style.position = "absolute";
-      tempContainer.style.left = "-9999px";
-      tempContainer.style.top = "0";
-      tempContainer.style.width = "800px";
-      tempContainer.style.height = "600px";
-      tempContainer.style.background = "#000";
-      tempContainer.style.display = "flex";
-      tempContainer.style.flexDirection = "column";
-      tempContainer.style.alignItems = "center";
-      tempContainer.style.justifyContent = "center";
-      tempContainer.style.padding = "20px";
-      tempContainer.style.boxSizing = "border-box";
+      // Read the photo blob as a data URL
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const imgData = e.target.result;
+        const pdf = new jsPDF("p", "mm", "a4");
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
 
-      // Add the photo
-      const img = document.createElement("img");
-      img.src = URL.createObjectURL(photo);
-      img.style.maxWidth = "100%";
-      img.style.maxHeight = "100%";
-      img.style.objectFit = "contain";
-      tempContainer.appendChild(img);
+        // Create an image to get its dimensions
+        const img = new window.Image();
+        img.onload = function () {
+          const imgWidth = img.width;
+          const imgHeight = img.height;
+          // Calculate the best fit for full height (with white background)
+          const ratio = pdfHeight / imgHeight;
+          const finalWidth = imgWidth * ratio;
+          const finalHeight = pdfHeight;
+          const x = (pdfWidth - finalWidth) / 2;
+          const y = 0;
 
-      document.body.appendChild(tempContainer);
+          // Fill background with white
+          pdf.setFillColor(255, 255, 255);
+          pdf.rect(0, 0, pdfWidth, pdfHeight, "F");
 
-      // Convert to canvas
-      const canvas = await html2canvas(tempContainer, {
-        backgroundColor: "#000",
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-      });
-
-      document.body.removeChild(tempContainer);
-
-      // Create PDF
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF("p", "mm", "a4");
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-
-      // Calculate image dimensions to fit in PDF
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
-      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-      const finalWidth = imgWidth * ratio;
-      const finalHeight = imgHeight * ratio;
-
-      // Center the image
-      const x = (pdfWidth - finalWidth) / 2;
-      const y = (pdfHeight - finalHeight) / 2;
-
-      pdf.addImage(imgData, "PNG", x, y, finalWidth, finalHeight);
-
-      // Save PDF
-      pdf.save(
-        `mollycam-photo-${new Date()
-          .toISOString()
-          .slice(0, 19)
-          .replace(/:/g, "-")}.pdf`
-      );
+          // Draw the image
+          pdf.addImage(imgData, "JPEG", x, y, finalWidth, finalHeight);
+          pdf.save(
+            `mollycam-photo-${new Date()
+              .toISOString()
+              .slice(0, 19)
+              .replace(/:/g, "-")}.pdf`
+          );
+        };
+        img.src = imgData;
+      };
+      reader.readAsDataURL(photo);
     } catch (error) {
       console.error("Error generating PDF:", error);
       alert("Failed to generate PDF. Please try again.");
@@ -159,7 +135,6 @@ function App() {
   // Retake photo
   const handleRetake = () => {
     setPhoto(null);
-    setShowShareOptions(false);
     setStreaming(true);
     // Restart camera if needed
     if (videoRef.current && !videoRef.current.srcObject) {
@@ -178,6 +153,11 @@ function App() {
     }
   }, [photo]);
 
+  // Flip camera
+  const handleFlip = () => {
+    setFacingMode((prev) => (prev === "user" ? "environment" : "user"));
+  };
+
   return (
     <div
       style={{
@@ -188,6 +168,10 @@ function App() {
         background: "#000",
         overflow: "hidden",
         zIndex: 0,
+        paddingTop: "env(safe-area-inset-top)",
+        paddingBottom: "env(safe-area-inset-bottom)",
+        paddingLeft: "env(safe-area-inset-left)",
+        paddingRight: "env(safe-area-inset-right)",
       }}
     >
       {!photo && (
@@ -207,27 +191,51 @@ function App() {
               background: "#000",
             }}
           />
-          <button
-            onClick={takePhoto}
+          <div
             style={{
               position: "absolute",
               left: "50%",
               transform: "translateX(-50%)",
-              bottom: 60,
+              bottom: "max(120px, env(safe-area-inset-bottom) + 20px)",
               zIndex: 2,
-              fontSize: 20,
-              padding: "1em 2.5em",
-              borderRadius: 30,
-              border: "none",
-              background: "rgba(255,255,255,0.85)",
-              color: "#111",
-              fontWeight: 600,
-              boxShadow: "0 2px 12px rgba(0,0,0,0.2)",
-              cursor: "pointer",
+              display: "flex",
+              flexDirection: "row",
+              gap: "16px",
             }}
           >
-            Take Photo
-          </button>
+            <button
+              onClick={takePhoto}
+              style={{
+                fontSize: 14,
+                padding: "1em 2.5em",
+                borderRadius: 30,
+                border: "none",
+                background: "rgba(255,255,255,0.85)",
+                color: "#111",
+                fontWeight: 600,
+                boxShadow: "0 2px 12px rgba(0,0,0,0.2)",
+                cursor: "pointer",
+              }}
+            >
+              Take Photo
+            </button>
+            <button
+              onClick={handleFlip}
+              style={{
+                fontSize: 14,
+                padding: "1em 2.5em",
+                borderRadius: 30,
+                border: "none",
+                background: "rgba(255,255,255,0.85)",
+                color: "#111",
+                fontWeight: 600,
+                boxShadow: "0 2px 12px rgba(0,0,0,0.2)",
+                cursor: "pointer",
+              }}
+            >
+              Flip
+            </button>
+          </div>
         </>
       )}
       <canvas ref={canvasRef} style={{ display: "none" }} />
@@ -258,97 +266,71 @@ function App() {
             }}
           />
 
-          {/* Share Options Button */}
-          <button
-            onClick={() => setShowShareOptions(!showShareOptions)}
+          {/* Share Buttons */}
+          <div
             style={{
               position: "absolute",
               left: "50%",
               transform: "translateX(-50%)",
-              bottom: 180,
-              fontSize: 18,
-              padding: "1em 2em",
-              borderRadius: 30,
-              border: "none",
-              background: "rgba(255,255,255,0.85)",
-              color: "#111",
-              fontWeight: 600,
-              boxShadow: "0 2px 12px rgba(0,0,0,0.2)",
-              cursor: "pointer",
+              bottom: "max(180px, env(safe-area-inset-bottom) + 140px)",
+              display: "flex",
+              flexDirection: "column",
+              gap: "10px",
               zIndex: 4,
             }}
           >
-            Share Options
-          </button>
-
-          {/* Share Options Menu */}
-          {showShareOptions && (
-            <div
+            <button
+              onClick={sharePhoto}
               style={{
-                position: "absolute",
-                left: "50%",
-                transform: "translateX(-50%)",
-                bottom: 240,
-                display: "flex",
-                flexDirection: "column",
-                gap: "10px",
-                zIndex: 5,
-                background: "rgba(0,0,0,0.9)",
-                padding: "15px",
-                borderRadius: "15px",
-                border: "1px solid rgba(255,255,255,0.2)",
+                fontSize: 16,
+                padding: "0.75em 1.5em",
+                borderRadius: 25,
+                border: "none",
+                background: "rgba(255,255,255,0.85)",
+                color: "#111",
+                fontWeight: 600,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                boxShadow: "0 2px 12px rgba(0,0,0,0.2)",
               }}
             >
-              <button
-                onClick={sharePhoto}
-                style={{
-                  fontSize: 16,
-                  padding: "0.75em 1.5em",
-                  borderRadius: 25,
-                  border: "none",
-                  background: "rgba(255,255,255,0.85)",
-                  color: "#111",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                📤 Share
-              </button>
-              <button
-                onClick={downloadPhoto}
-                style={{
-                  fontSize: 16,
-                  padding: "0.75em 1.5em",
-                  borderRadius: 25,
-                  border: "none",
-                  background: "rgba(255,255,255,0.85)",
-                  color: "#111",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                💾 Download
-              </button>
-              <button
-                onClick={exportAsPDF}
-                style={{
-                  fontSize: 16,
-                  padding: "0.75em 1.5em",
-                  borderRadius: 25,
-                  border: "none",
-                  background: "rgba(255,255,255,0.85)",
-                  color: "#111",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                📄 Export as PDF
-              </button>
-            </div>
-          )}
+              📤 Share
+            </button>
+            <button
+              onClick={downloadPhoto}
+              style={{
+                fontSize: 16,
+                padding: "0.75em 1.5em",
+                borderRadius: 25,
+                border: "none",
+                background: "rgba(255,255,255,0.85)",
+                color: "#111",
+                fontWeight: 600,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                boxShadow: "0 2px 12px rgba(0,0,0,0.2)",
+              }}
+            >
+              💾 Download
+            </button>
+            <button
+              onClick={exportAsPDF}
+              style={{
+                fontSize: 16,
+                padding: "0.75em 1.5em",
+                borderRadius: 25,
+                border: "none",
+                background: "rgba(255,255,255,0.85)",
+                color: "#111",
+                fontWeight: 600,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                boxShadow: "0 2px 12px rgba(0,0,0,0.2)",
+              }}
+            >
+              📄 Export as PDF
+            </button>
+          </div>
 
           <button
             onClick={handleRetake}
@@ -356,7 +338,7 @@ function App() {
               position: "absolute",
               left: "50%",
               transform: "translateX(-50%)",
-              bottom: 60,
+              bottom: "max(120px, env(safe-area-inset-bottom) + 20px)",
               fontSize: 16,
               padding: "0.75em 2em",
               borderRadius: 30,
